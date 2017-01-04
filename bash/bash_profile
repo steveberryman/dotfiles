@@ -1,0 +1,123 @@
+setjdk() {
+    export JAVA_HOME=$(/usr/libexec/java_home -v $1)
+    sudo ln -nsf ${JAVA_HOME%/*} /System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK
+}
+
+function myip {
+  res=$(curl -s checkip.dyndns.org | grep -Eo '[0-9\.]+')
+  echo "$res"
+}
+
+function change_chef {
+  NEW_CHEF="`readlink ~/.chef-$1`"
+  rm -f ~/.chef
+  ln -s "$NEW_CHEF" ~/.chef
+}
+
+
+function git_stats {
+# awesome work from https://github.com/esc/git-stats
+# including some modifications
+if [ -n "$(git symbolic-ref HEAD 2> /dev/null)" ]; then
+    echo "Number of commits per author:"
+    git --no-pager shortlog -sn --all
+    AUTHORS=$( git shortlog -sn --all | cut -f2 | cut -f1 -d' ')
+    LOGOPTS=""
+    if [ "$1" == '-w' ]; then
+        LOGOPTS="$LOGOPTS -w"
+        shift
+    fi
+    if [ "$1" == '-M' ]; then
+        LOGOPTS="$LOGOPTS -M"
+        shift
+    fi
+    if [ "$1" == '-C' ]; then
+        LOGOPTS="$LOGOPTS -C --find-copies-harder"
+        shift
+    fi
+    for a in $AUTHORS
+    do
+        echo '-------------------'
+        echo "Statistics for: $a"
+        echo -n "Number of files changed: "
+        git log $LOGOPTS --all --numstat --format="%n" --author=$a | cut -f3 | sort -iu | wc -l
+        echo -n "Number of lines added: "
+        git log $LOGOPTS --all --numstat --format="%n" --author=$a | cut -f1 | awk '{s+=$1} END {print s}'
+        echo -n "Number of lines deleted: "
+        git log $LOGOPTS --all --numstat --format="%n" --author=$a | cut -f2 | awk '{s+=$1} END {print s}'
+        echo -n "Number of merges: "
+        git log $LOGOPTS --all --merges --author=$a | grep -c '^commit'
+    done
+else
+    echo "you're currently not in a git repository"
+fi
+}
+
+COLOR_RED="\033[0;31m"
+COLOR_YELLOW="\033[0;33m"
+COLOR_GREEN="\033[0;32m"
+COLOR_OCHRE="\033[38;5;95m"
+COLOR_BLUE="\033[0;34m"
+COLOR_WHITE="\033[0;37m"
+COLOR_RESET="\033[0m"
+
+function git_color {
+  local git_status="$(git status 2> /dev/null)"
+
+  if [[ ! $git_status =~ "working directory clean" ]]; then
+    echo -e $COLOR_RED
+  elif [[ $git_status =~ "Your branch is ahead of" ]]; then
+    echo -e $COLOR_YELLOW
+  elif [[ $git_status =~ "nothing to commit" ]]; then
+    echo -e $COLOR_GREEN
+  else
+    echo -e $COLOR_OCHRE
+  fi
+}
+
+function git_branch {
+  local git_status="$(git status 2> /dev/null)"
+  local on_branch="On branch ([^${IFS}]*)"
+  local on_commit="HEAD detached at ([^${IFS}]*)"
+
+  if [[ $git_status =~ $on_branch ]]; then
+    local branch=${BASH_REMATCH[1]}
+    echo "($branch)"
+  elif [[ $git_status =~ $on_commit ]]; then
+    local commit=${BASH_REMATCH[1]}
+    echo "($commit)"
+  fi
+}
+
+export PATH="/Users/steve/.rbenv/shims:/Users/steve/.rbenv/bin:/usr/local/heroku/bin:/opt/local/bin:/opt/local/sbin:/opt/local/bin:/opt/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/X11/bin:/usr/local/MacGPG2/bin:/Users/steve/bin:/usr/local/bin:/usr/local/sbin:/usr/local/git/bin"
+export PATH=/opt/local/bin:/opt/local/sbin:$PATH
+export PS1="\[\033[38;5;33m\]\u\[$(tput sgr0)\]\[\033[38;5;15m\]@\[$(tput sgr0)\]\[\033[38;5;37m\]\h\[$(tput sgr0)\]\[\033[38;5;15m\]:\[$(tput sgr0)\]\[\033[38;5;178m\]\W\[$(tput sgr0)\]\[\033[38;5;15m\] \[\$(git_color)\]\$(git_branch)\[$COLOR_WHITE\] [\[$(tput bold)\]\[$(tput sgr0)\]\[\033[38;5;160m\]\$?\[$(tput sgr0)\]\[$(tput sgr0)\]\[\033[38;5;15m\]]\[$(tput sgr0)\]\[\033[38;5;166m\]\\$\[$(tput sgr0)\]"
+
+export GREP_OPTIONS='--color=auto' GREP_COLOR='1;32'
+export CLICOLOR=true
+export LSCOLORS=ExGxFxdxCxDxDxBxBxExEx
+export HISTTIMEFORMAT="%Y-%m-%d %T "
+# handy aliases
+alias top='top -o cpu'
+
+# use Textmate as default editor
+export EDITOR="vim"
+
+# no duplicates in bash history
+export HISTCONTROL=ignoredups
+
+export PATH="$HOME/.rbenv/bin:$PATH"
+eval "$(rbenv init -)"
+export PATH="$HOME/.jenv/bin:$PATH"
+eval "$(jenv init -)"
+export GOPATH="/Users/steve/git/go"
+
+alias ls="ls -G"
+alias ll="ls -lh"
+alias irc='ssh -t caulfield.26degrees.co.uk screen -drU'
+alias ch='ssh -t -i ~/.ssh/mongohq_vpc.pem chuck.dblayer.com "tmux -CC attach"'
+alias chn='ssh -t -i ~/.ssh/mongohq_vpc.pem chuck.dblayer.com tmux -CC'
+
+if [ -f $(brew --prefix)/etc/bash_completion ]; then
+. $(brew --prefix)/etc/bash_completion
+fi
